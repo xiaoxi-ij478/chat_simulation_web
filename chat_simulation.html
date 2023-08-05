@@ -45,6 +45,8 @@
             .msg > .char_name {
                 float: left;
                 margin-left: 5px;
+                min-width: 10px;
+                min-height: 1px;
             }
             .msg.sub_char > .profile_photo,
             .msg.main_char > .profile_photo {
@@ -371,6 +373,16 @@
             function addNewCharacter(id, name, photoFile)
             {
                 var oldNode = document.querySelector("#character_template");
+
+                if (!name) {
+                    alert("名称不可为空!");
+                    return;
+                }
+                if (charactersMap[id]) {
+                    alert(`已存在相同 ID 的角色: "${charactersMap[id].name}"!`);
+                    return;
+                }
+
                 var newNode = oldNode.cloneNode();
                 var photoURL = URL.createObjectURL(photoFile);
                 var newChar = null;
@@ -620,11 +632,6 @@
                 var name = document.querySelector("#ancw_name").value;
                 var photoFile = document.querySelector("#ancw_profile_photoFile").files[0] ||
                                 defaultProfilePhoto;
-
-                if (charactersMap[id]) {
-                    alert(`已存在相同 ID 的角色: "${charactersMap[id].name}"!`);
-                    return;
-                }
 
                 addNewCharacter(id, name, photoFile);
                 closeAddNewCharacterWindow();
