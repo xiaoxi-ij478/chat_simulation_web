@@ -323,20 +323,66 @@
 
             // 被选中时 callback
             Character.prototype.onSelect = function() {
+                if (selectedCharacter)
+                    if (selectedCharacter === this) // 我们已经被选中了
+                        return;
+                    else // 首先取消选中之前选中的角色
+                        selectedCharacter.onUnselect();
+
+                selectedCharacter = this;
                 this.node.classList.add("clw_selected");
             }
 
             // 被取消选中时 callback
             Character.prototype.onUnselect = function() {
+                if (selectedCharacter !== this) // 我们不是被选中的
+                    return;
+
+                selectedCharacter = null;
                 this.node.classList.remove("clw_selected");
             }
 
             // 设为主角色时 callback
             Character.prototype.onSetAsMain = function() {
+                if (this.isMain) // 已经是主角色了
+                    return;
+
+                this.isMain = true;
+                // 将所有此人发送的消息转为主角色格式
+                document.querySelectorAll(
+                    `.msg[data-sender-id=${this.id}]`
+                ).forEach(
+                    function(node)
+                    {
+                        node.classList.remove("sub_char");
+                        node.classList.add("main_char");
+                    }
+                );
+
+                // 显示转为主角色按钮，隐藏转为副角色按钮
+                this.node.querySelector(".clw_set_as_sub_button").style.display = "block";
+                this.node.querySelector(".clw_set_as_main_button").style.display = "none";
             }
 
             // 取消设为主角色时 callback
             Character.prototype.onUnsetAsMain = function() {
+                if (!this.isMain) // 已经是副角色了
+                    return;
+
+                this.isMain = false;
+                // 将所有此人发送的消息转为副角色格式
+                document.querySelectorAll(
+                    `.msg[data-sender-id=${this.id}]`
+                ).forEach(
+                    function(node)
+                    {
+                        node.classList.add("sub_char");
+                        node.classList.remove("main_char");
+                    }
+                );
+                // 显示转为主角色按钮，隐藏转为副角色按钮
+                this.node.querySelector(".clw_set_as_main_button").style.display = "block";
+                this.node.querySelector(".clw_set_as_sub_button").style.display = "none";
             }
 
             // 默认头像
@@ -405,11 +451,6 @@
                             return;
                         }
 
-                        // 先取消选中当前角色 (如果有)
-                        if (selectedCharacter)
-                            selectedCharacter.onUnselect();
-
-                        selectedCharacter = newChar;
                         newChar.onSelect();
                     }
                 );
@@ -422,47 +463,13 @@
                 // 点击转为主角色按钮时
                 newNode.querySelector(".clw_set_as_main_button").addEventListener(
                     "click", function() {
-                        // 已经是主角色了
-                        if (newChar.isMain)
-                            return;
-
-                        newChar.isMain = true;
-                        document.querySelectorAll(
-                            `.msg[data-sender-id=${newChar.id}]`
-                        ).forEach(
-                            function(node)
-                            {
-                                node.classList.remove("sub_char");
-                                node.classList.add("main_char");
-                            }
-                        );
-
-                        // 显示转为主角色按钮，隐藏转为副角色按钮
-                        newNode.querySelector(".clw_set_as_sub_button").style.display = "block";
-                        newNode.querySelector(".clw_set_as_main_button").style.display = "none";
+                        newChar.onSetAsMain();
                     }
                 );
                 // 点击转为副角色按钮时
                 newNode.querySelector(".clw_set_as_sub_button").addEventListener(
                     "click", function() {
-                        // 已经是副角色了
-                        if (!newChar.isMain)
-                            return;
-
-                        newChar.isMain = false;
-                        // 将所有此人发送的消息转为副角色格式
-                        document.querySelectorAll(
-                            `.msg[data-sender-id=${newChar.id}]`
-                        ).forEach(
-                            function(node)
-                            {
-                                node.classList.add("sub_char");
-                                node.classList.remove("main_char");
-                            }
-                        );
-                        // 显示转为主角色按钮，隐藏转为副角色按钮
-                        newNode.querySelector(".clw_set_as_main_button").style.display = "block";
-                        newNode.querySelector(".clw_set_as_sub_button").style.display = "none";
+                        newChar.onUnsetAsMain();
                     }
                 );
                 // 点击修改按钮
