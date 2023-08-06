@@ -35,25 +35,20 @@
         </style>
         <style>
             /* 消息通用属性 (头像, 名称) */
-            .msg > .profile_photo {
+            .msg_profile_photo {
                 float: left;
                 margin: 5px;
                 border-radius: 5px;
-                width: 50px;
-                height: 50px;
+                width: 100px;
+                height: 100px;
             }
-            .msg > .char_name {
+            .msg_char_name {
                 float: left;
                 margin-left: 5px;
                 min-width: 10px;
                 min-height: 1px;
             }
-            .msg.sub_char > .profile_photo,
-            .msg.main_char > .profile_photo {
-                width: 100px;
-                height: 100px;
-            }
-            .msg > .msg_delete_button {
+            .msg_delete_button {
                 display: none;
                 float: right;
                 width: 10%;
@@ -67,8 +62,8 @@
             .msg.main_char > .msg_delete_button {
                 float: left;
             }
-            .msg.main_char > .profile_photo,
-            .msg.main_char > .char_name {
+            .msg.main_char > .msg_profile_photo,
+            .msg.main_char > .msg_char_name {
                 float: right;
             }
         </style>
@@ -167,10 +162,11 @@
             }
         </style>
         <style>
-            /* 添加角色窗口属性
+            /* 添加 & 修改角色窗口属性
              * 让内部窗口居中放置 & 背景透明色 */
-            #add_new_character_window {
-                position: sticky;
+            #add_new_character_window,
+            #modify_character_window {
+                position: fixed;
                 /* display: flex; */
                 align-items: center;
                 justify-content: center;
@@ -178,8 +174,10 @@
                 width: 100vw;
                 height: 100vh;
                 bottom: 0;
+                left: 0;
             }
-            #add_new_character_window > section {
+            #add_new_character_window > section,
+            #modify_character_window > section {
                 width: 50%;
                 height: min-content;
                 border: 2px solid;
@@ -188,19 +186,21 @@
             }
             /* 所有内容水平铺开
              * ancw == add_new_character_window */
-            #add_new_character_window > section > section {
+            #add_new_character_window > section > section,
+            #modify_character_window > section > section {
                 display: flex;
                 height: 15vh;
             }
-            #ancw_profile_photo {
+            #ancw_profile_photo, #mcw_profile_photo {
                 /* 此处大小只用于什么也没有的时候,
                  * 加载图片以后将会调整为图片大小 */
                 width: 20%;
             }
-            .ancw_hint {
+            .ancw_hint, .mcw_hint {
                 margin: auto;
             }
-            #ancw_commit, #ancw_cancel {
+            #ancw_commit, #ancw_cancel,
+            #mcw_commit, #mcw_cancel {
                 width: 50%;
             }
         </style>
@@ -218,16 +218,16 @@
                     color: #999;
                 }
                 button:hover {
-                    background-color: #444;
+                    background-color: #333;
                 }
                 button:active {
-                    background-color: #333;
+                    background-color: #444;
                 }
             }
         </style>
         <style>
             @media (prefers-color-scheme: dark) {
-                .char_name {
+                .msg_char_name {
                     color: #ddd;
                 }
                 .msg_text > .msg_content {
@@ -262,31 +262,33 @@
         </style>
         <style>
             @media (prefers-color-scheme: dark) {
-                #add_new_character_window > section, #ancw_name, #ancw_id {
+                #add_new_character_window > section, #ancw_name, #ancw_id,
+                #modify_character_window > section, #mcw_name, #mcw_id {
                     background-color: #111;
                 }
-                #ancw_profile_photoFile, .ancw_hint, #ancw_name, #ancw_id {
+                #ancw_profile_photofile, .ancw_hint, #ancw_name, #ancw_id,
+                #mcw_profile_photofile, .mcw_hint, #mcw_name, #mcw_id {
                     color: #ddd;
                 }
             }
         </style>
         <!-- sub_char 文本消息模板 -->
         <template id="text_sub_template"><section data-sender-id="${id}" class="msg msg_text sub_char overflow_auto clear_both">
-                <img class="profile_photo" src="${photoURL}">
-                <div class="char_name"> ${name} </div>
+                <img class="msg_profile_photo" src="${photoURL}"/>
+                <div class="msg_char_name"> ${name} </div>
                 <div class="msg_content"> ${message} </div>
                 <button class="msg_delete_button">删除</button>
             </section></template>
         <!-- main_char 文本消息模板 -->
         <template id="text_main_template"><section data-sender-id="${id}" class="msg msg_text main_char overflow_auto clear_both">
-                <img class="profile_photo" src="${photoURL}">
-                <div class="char_name"> ${name} </div>
+                <img class="msg_profile_photo" src="${photoURL}"/>
+                <div class="msg_char_name"> ${name} </div>
                 <div class="msg_content"> ${message} </div>
                 <button class="msg_delete_button">删除</button>
             </section></template>
         <!-- 角色列表信息模板 -->
         <template id="character_template"><li data-char-id="${id}" class="clw_item overflow_auto">
-                <img class="profile_photo" src="${photoURL}">
+                <img class="clw_profile_photo" src="${photoURL}"/>
                 <span class="clw_char_name"> ${name} (${id}) </span>
                 <button class="clw_set_as_main_button clw_no_select_when_click" style="display: block">设为主角色</button>
                 <button class="clw_set_as_sub_button clw_no_select_when_click" style="display: none">设为副角色</button>
@@ -303,6 +305,13 @@
 
             // 当前选择的角色
             var selectedCharacter = null;
+
+            // 当前正在修改的角色
+            var modifyingCharacter = null;
+
+            /* XXX 我想把Character 的
+             * id, name, photoFile 和 photo URL
+             * 用 getter 和 setter 重写 */
 
             /* 角色对象
              * @param id 角色 ID
@@ -409,7 +418,7 @@
             // 工具
         </script>
         <script>
-            // 角色处理 (添加, 删除)
+            // 角色处理 (添加, 删除, 修改)
 
             /* 添加新角色
              * @param id 角色 ID
@@ -475,8 +484,7 @@
                 // 点击修改按钮
                 newNode.querySelector(".clw_modify_character_button").addEventListener(
                     "click", function() {
-                        // TODO
-                        alert("TODO");
+                        modifyCharacterShowWindow(newChar.id);
                     }
                 );
 
@@ -501,6 +509,9 @@
              * @param id 角色 ID */
             function deleteCharacter(id)
             {
+                if (!charactersMap[id]) // 没有这个角色
+                    return;
+
                 if (charactersMap[id] === selectedCharacter)
                     selectedCharacter = null;
 
@@ -508,6 +519,98 @@
                 document.querySelector(`.clw_item[data-char-id=${id}]`).remove();
                 document.querySelectorAll(`.msg[data-sender-id=${id}]`).forEach(deleteMessage);
                 delete charactersMap[id];
+            }
+
+            /* 修改角色 (显示窗口)
+             * 这里指的是显示一个对话框让用户修改
+             * 但这个函数只管前面的显示窗口, 赋值等操作
+             * 后续的确认等都由修改窗口的回调进行处理
+             * @param id 角色 ID */
+            function modifyCharacterShowWindow(id)
+            {
+                var mcw = document.querySelector("#modify_character_window");
+                if (!charactersMap[id]) // 没有这个角色
+                    return;
+
+                mcw.style.display = "flex"; // 显示修改界面, 然后填写角色信息
+
+                document.querySelector("#mcw_profile_photo").src = charactersMap[id].photoURL;
+                document.querySelector("#mcw_name").value = charactersMap[id].name;
+                document.querySelector("#mcw_id").value = charactersMap[id].id;
+
+                modifyingCharacter = charactersMap[id];
+                // 到这里我们的工作结束了, 接下来让修改窗口的回调处理吧
+            }
+
+            /* 修改角色, 显示窗口
+             * @param oldId 原角色 ID
+             * @param newId 新角色 ID (可选)
+             * @param name 新角色名称 (可选)
+             * @param photoFile 新角色头像, File 对象 (可选) */
+            function modifyCharacter(oldId, newId, name, photoFile)
+            {
+                var charObj = charactersMap[oldId];
+
+                if (!newId) {
+                    alert("新 ID 不可为空!");
+                    return;
+                }
+                if (charactersMap[newId] && charactersMap[newId] !== charactersMap[oldId]) {
+                    alert(`已存在相同 ID 的角色: "${charactersMap[id].name}"!`);
+                    return;
+                }
+                if (!name) {
+                    alert("新名称不可为空!");
+                    return;
+                }
+                if (!photoFile) {
+                    alert("新头像 File 不可为空!");
+                    return;
+                }
+
+                // 在 Map 里删除旧的 ID
+                delete charactersMap[oldId];
+                charactersMap[newId] = charObj;
+
+                // 更新属性
+                charObj.id = newId;
+                charObj.name = name;
+                // 如果图片没换的话那么就不用管了
+                if (photoFile !== charObj.photoFile) {
+                    // 更新 URL
+                    charObj.photoFile = photoFile;
+                    URL.revokeObjectURL(charObj.photoURL);
+                    charObj.photoURL = URL.createObjectURL(photoFile);
+
+                    // 更新角色列表和消息列表里的头像
+                    document.querySelector(
+                        `.clw_item[data-char-id=${oldId}] .clw_profile_photo`
+                    ).src = charObj.photoURL;
+                    document.querySelectorAll(
+                        `.msg[data-sender-id=${oldId}] .msg_profile_photo`
+                    ).forEach(
+                        function(node)
+                        {
+                            node.src = charObj.photoURL;
+                        }
+                    );
+                }
+
+                // 更新角色列表和消息列表里的名称信息
+                var node = document.querySelector(
+                    `.clw_item[data-char-id=${oldId}] .clw_char_name`
+                );
+                node.innerHTML = `${charObj.name} (${charObj.id})`;
+                node.parentNode.setAttribute("data-char-id", charObj.id);
+                document.querySelectorAll(
+                    `.msg[data-sender-id=${oldId}]`
+                ).forEach(
+                    function(node)
+                    {
+                        node.setAttribute("data-sender-id", newId);
+                        node.querySelector(".msg_char_name").innerHTML = name;
+                    }
+                );
             }
         </script>
         <script>
@@ -629,7 +732,23 @@
                 _tmp_profile_photoURL = url;
                 document.querySelector("#ancw_profile_photo").src = url;
             }
-            addOnLoadEventListener("#ancw_profile_photoFile", "change", updateAncwProfilePhoto);
+            addOnLoadEventListener("#ancw_profile_photofile", "change", updateAncwProfilePhoto);
+
+            // 角色头像切换时更新 #mcw_profile_photo
+            var _tmp2_profile_photoURL = null;
+            function updateMcwProfilePhoto()
+            {
+                // 如果以前有 URL 的话, 首先释放
+                if (_tmp2_profile_photoURL)
+                    URL.revokeObjectURL(_tmp2_profile_photoURL);
+
+                var url = URL.createObjectURL(this.files[0]);
+
+                // 绑定到 _tmp2_profile_photoURL, 以便改变图片的时候释放
+                _tmp2_profile_photoURL = url;
+                document.querySelector("#mcw_profile_photo").src = url;
+            }
+            addOnLoadEventListener("#mcw_profile_photofile", "change", updateMcwProfilePhoto);
 
             // 添加角色窗口点击确定时提交
             function commitNewCharacter()
@@ -637,13 +756,37 @@
                 var id = document.querySelector("#ancw_id").value ||
                          `c${Object.keys(charactersMap).length}`
                 var name = document.querySelector("#ancw_name").value;
-                var photoFile = document.querySelector("#ancw_profile_photoFile").files[0] ||
+                var photoFile = document.querySelector("#ancw_profile_photofile").files[0] ||
                                 defaultProfilePhoto;
 
                 addNewCharacter(id, name, photoFile);
                 closeAddNewCharacterWindow();
             }
             addOnLoadEventListener("#ancw_commit", "click", commitNewCharacter);
+
+            // 修改角色窗口点击确定时提交
+            function commitModifyCharacter()
+            {
+                var id = document.querySelector("#mcw_id").value ||
+                         `c${Object.keys(charactersMap).length}`
+                var name = document.querySelector("#mcw_name").value;
+                var photoFile = document.querySelector("#mcw_profile_photofile").files[0] ||
+                                modifyingCharacter.photoFile;
+                var charObj = charactersMap[modifyingCharacter.id];
+
+                modifyCharacter(modifyingCharacter.id, id, name, photoFile);
+
+                modifyingCharacter = null;
+                document.querySelector("#modify_character_window").style.display = "none";
+            }
+            addOnLoadEventListener("#mcw_commit", "click", commitModifyCharacter);
+
+            // 关闭修改角色窗口
+            function closeModifyCharacterWindow()
+            {
+                document.querySelector("#modify_character_window").style.display = "none";
+            }
+            addOnLoadEventListener("#mcw_cancel", "click", closeModifyCharacterWindow);
 
         </script>
     </head>
@@ -659,75 +802,75 @@
                 <!-- 这些都是布局测试 -->
                 <!--<section data-sender-id="xiaoxi" class="msg msg_text sub_char overflow_auto clear_both">
                     <!-- 短消息测试 >
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg">
-                    <div class="char_name"> 赛小息 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg"/>
+                    <div class=""> 赛小息 </div>
                     <div class="msg_content"> wow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="xiaoxi" class="msg msg_text sub_char overflow_auto clear_both">
                     <!-- 长消息测试 >
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg">
-                    <div class="char_name"> 赛小息 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg"/>
+                    <div class="msg_char_name"> 赛小息 </div>
                     <div class="msg_content"> wowwowwowwowwowwowwowwowwowwowwowwow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="xiaoxi" class="msg msg_text main_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg">
-                    <div class="char_name"> 赛小息 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg"/>
+                    <div class=""> 赛小息 </div>
                     <div class="msg_content"> wow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="xiaoxi" class="msg msg_text main_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg">
-                    <div class="char_name"> 赛小息 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg"/>
+                    <div class=""> 赛小息 </div>
                     <div class="msg_content"> wowwowwowwowwowwowwowwowwowwowwowwow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="atieda" class="msg msg_text sub_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg">
-                    <div class="char_name"> 阿铁打 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg"/>
+                    <div class=""> 阿铁打 </div>
                     <div class="msg_content"> wow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="atieda" class="msg msg_text sub_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg">
-                    <div class="char_name"> 阿铁打 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg"/>
+                    <div class=""> 阿铁打 </div>
                     <div class="msg_content"> wowwowwowwowwowwowwowwowwowwowwowwow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="atieda" class="msg msg_text main_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg">
-                    <div class="char_name"> 阿铁打 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg"/>
+                    <div class=""> 阿铁打 </div>
                     <div class="msg_content"> wow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="atieda" class="msg msg_text main_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg">
-                    <div class="char_name"> 阿铁打 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg"/>
+                    <div class=""> 阿铁打 </div>
                     <div class="msg_content"> wowwowwowwowwowwowwowwowwowwowwowwow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="kalulu" class="msg msg_text sub_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg">
-                    <div class="char_name"> 卡璐璐 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg"/>
+                    <div class=""> 卡璐璐 </div>
                     <div class="msg_content"> wow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="kalulu" class="msg msg_text sub_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg">
-                    <div class="char_name"> 卡璐璐 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg"/>
+                    <div class=""> 卡璐璐 </div>
                     <div class="msg_content"> wowwowwowwowwowwowwowwowwowwowwowwow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="kalulu" class="msg msg_text main_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg">
-                    <div class="char_name"> 卡璐璐 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg"/>
+                    <div class=""> 卡璐璐 </div>
                     <div class="msg_content"> wow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>
                 <section data-sender-id="kalulu" class="msg msg_text main_char overflow_auto clear_both">
-                    <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg">
-                    <div class="char_name"> 卡璐璐 </div>
+                    <img class="msg_profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg"/>
+                    <div class=""> 卡璐璐 </div>
                     <div class="msg_content"> wowwowwowwowwowwowwowwowwowwowwowwow </div>
                     <button class="msg_delete_button">删除</button>
                 </section>-->
@@ -744,7 +887,7 @@
                             <!-- 点击事件会在添加的时候加进去 -->
                             <!-- 这些都是布局测试 -->
                             <!--<li data-char-id="xiaoxi" class="clw_item clw_selected overflow_auto">
-                                <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg">
+                                <img class="clw_profile_photo" src="/home/careful/Desktop/赛尔号/图库/09.jpg"/>
                                 <span class="clw_char_name"> 赛小息 (xiaoxi) </span>
                                 <button class="clw_set_as_main_button clw_no_select_when_click" style="display: block">设为主角色</button>
                                 <button class="clw_set_as_sub_button clw_no_select_when_click" style="display: none">设为副角色</button>
@@ -753,7 +896,7 @@
                             </li>
                             <hr/>
                             <li data-char-id="atieda" class="clw_item overflow_auto">
-                                <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg">
+                                <img class="clw_profile_photo" src="/home/careful/Desktop/赛尔号/图库/10.jpg"/>
                                 <span class="clw_char_name"> 阿铁打 (atieda) </span>
                                 <button class="clw_set_as_main_button clw_no_select_when_click" style="display: block">设为主角色</button>
                                 <button class="clw_set_as_sub_button clw_no_select_when_click" style="display: none">设为副角色</button>
@@ -762,7 +905,7 @@
                             </li>
                             <hr/>
                             <li data-char-id="kalulu" class="clw_item overflow_auto">
-                                <img class="profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg">
+                                <img class="clw_profile_photo" src="/home/careful/Desktop/赛尔号/图库/01.jpg"/>
                                 <span class="clw_char_name"> 卡璐璐 (kalulu) </span>
                                 <button class="clw_set_as_main_button clw_no_select_when_click" style="display: block">设为主角色</button>
                                 <button class="clw_set_as_sub_button clw_no_select_when_click" style="display: none">设为副角色</button>
@@ -786,23 +929,49 @@
             <section>
                 <h3> 添加新角色 </h3>
                 <section style="height: min-content">
-                    <input id="ancw_profile_photoFile" type="file"/>
+                    <input id="ancw_profile_photofile" type="file"/>
                 </section>
                 <section>
                     <img id="ancw_profile_photo"/>
                     <span class="ancw_hint">角色头像</span>
                 </section>
                 <section>
-                    <input id="ancw_name" type="msg_text"/>
+                    <input id="ancw_name" type="text"/>
                     <span class="ancw_hint">角色名称</span>
                 </section>
                 <section>
-                    <input id="ancw_id" type="msg_text"/>
+                    <input id="ancw_id" type="text"/>
                     <span class="ancw_hint">角色ID (若未指定则自动生成)</span>
                 </section>
                 <section>
                     <button id="ancw_commit">确定</button>
                     <button id="ancw_cancel">取消</button>
+                </section>
+            </section>
+        </article>
+        <!-- 修改角色窗口 -->
+        <!-- 由add_new_character_window 改写 -->
+        <article id="modify_character_window" style="display: none">
+            <section>
+                <h3> 修改角色 </h3>
+                <section style="height: min-content">
+                    <input id="mcw_profile_photofile" type="file"/>
+                </section>
+                <section>
+                    <img id="mcw_profile_photo"/>
+                    <span class="mcw_hint">角色头像</span>
+                </section>
+                <section>
+                    <input id="mcw_name" type="text"/>
+                    <span class="mcw_hint">角色名称</span>
+                </section>
+                <section>
+                    <input id="mcw_id" type="text"/>
+                    <span class="mcw_hint">角色ID (若未指定则自动生成)</span>
+                </section>
+                <section>
+                    <button id="mcw_commit">确定</button>
+                    <button id="mcw_cancel">取消</button>
                 </section>
             </section>
         </article>
